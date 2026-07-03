@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PCCard } from '@/components/pc-card';
@@ -30,11 +30,18 @@ export default function PCsPage() {
           </h1>
           <p className="mt-1 font-mono text-xs text-slate-500">// all registered machines</p>
         </div>
-        <Link href="/pcs/new">
-          <Button variant="solid">
-            <Plus size={16} /> New PC
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/labels">
+            <Button variant="outline">
+              <Tags size={15} /> Print labels
+            </Button>
+          </Link>
+          <Link href="/pcs/new">
+            <Button variant="solid">
+              <Plus size={16} /> New PC
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {/* search + filter bar */}
