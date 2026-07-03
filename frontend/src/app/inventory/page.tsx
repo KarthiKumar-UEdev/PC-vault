@@ -13,6 +13,7 @@ import { GlassCard } from '@/components/ui/card';
 import { Select } from '@/components/ui/input';
 import { ErrorState, PageLoader } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
+import { useIsAdmin } from '@/lib/use-role';
 import type { Part } from '@/lib/types';
 import { PART_CONDITIONS, PART_TYPE_LABELS, PART_TYPES } from '@/lib/types';
 import { formatAge, formatMoney } from '@/lib/utils';
@@ -21,6 +22,7 @@ export default function InventoryPage() {
   const [type, setType] = useState('');
   const [condition, setCondition] = useState('');
   const [creating, setCreating] = useState(false);
+  const isAdmin = useIsAdmin();
   const [transferPart, setTransferPart] = useState<Part | null>(null);
 
   const parts = useQuery({
@@ -42,9 +44,11 @@ export default function InventoryPage() {
           </h1>
           <p className="mt-1 font-mono text-xs text-slate-500">// unassigned components</p>
         </div>
-        <Button variant="solid" onClick={() => setCreating(true)}>
-          <Plus size={16} /> Register part
-        </Button>
+        {isAdmin && (
+          <Button variant="solid" onClick={() => setCreating(true)}>
+            <Plus size={16} /> Register part
+          </Button>
+        )}
       </header>
 
       <div className="glass mb-6 flex flex-wrap items-center gap-3 p-3">
@@ -104,9 +108,11 @@ export default function InventoryPage() {
                   <span className="text-xs text-slate-500">{formatAge(part.purchase_date)} old</span>
                   <span className="font-mono text-sm text-neon-cyan">{formatMoney(part.purchase_price)}</span>
                 </div>
-                <Button className="mt-3 w-full" size="sm" onClick={() => setTransferPart(part)}>
-                  <ArrowRightLeft size={13} /> Assign to PC
-                </Button>
+                {isAdmin && (
+                  <Button className="mt-3 w-full" size="sm" onClick={() => setTransferPart(part)}>
+                    <ArrowRightLeft size={13} /> Assign to PC
+                  </Button>
+                )}
               </GlassCard>
             </motion.div>
           ))}

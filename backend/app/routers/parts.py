@@ -1,9 +1,10 @@
-from datetime import date
+﻿from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import require_admin
 from app.database import get_db
 from app.models import PC, Part, PartCondition, PartType, TransferLog
 from app.schemas import (
@@ -101,7 +102,7 @@ def parts_aging(db: Session = Depends(get_db)):
     return result
 
 
-@router.post("", response_model=PartOut, status_code=201)
+@router.post("", response_model=PartOut, status_code=201, dependencies=[Depends(require_admin)])
 def create_part(payload: PartCreate, db: Session = Depends(get_db)):
     data = payload.model_dump()
     if data.get("pc_id"):
@@ -123,7 +124,7 @@ def get_part(part_id: str, db: Session = Depends(get_db)):
     return _part_out(_get_part_or_404(db, part_id))
 
 
-@router.patch("/{part_id}", response_model=PartOut)
+@router.patch("/{part_id}", response_model=PartOut, dependencies=[Depends(require_admin)])
 def update_part(part_id: str, payload: PartUpdate, db: Session = Depends(get_db)):
     part = _get_part_or_404(db, part_id)
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -132,7 +133,7 @@ def update_part(part_id: str, payload: PartUpdate, db: Session = Depends(get_db)
     return _part_out(_get_part_or_404(db, part_id))
 
 
-@router.delete("/{part_id}", response_model=OkOut)
+@router.delete("/{part_id}", response_model=OkOut, dependencies=[Depends(require_admin)])
 def delete_part(part_id: str, db: Session = Depends(get_db)):
     part = _get_part_or_404(db, part_id)
     db.delete(part)
@@ -140,7 +141,7 @@ def delete_part(part_id: str, db: Session = Depends(get_db)):
     return OkOut()
 
 
-@router.post("/{part_id}/transfer", response_model=PartOut)
+@router.post("/{part_id}/transfer", response_model=PartOut, dependencies=[Depends(require_admin)])
 def transfer_part(part_id: str, payload: TransferIn, db: Session = Depends(get_db)):
     part = _get_part_or_404(db, part_id)
     to_pc_id = payload.to_pc_id

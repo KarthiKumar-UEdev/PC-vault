@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import PartCondition, PartType, PCStatus
+from app.models import BuildStatus, PartCondition, PartType, PCStatus
 
 
 class ORMModel(BaseModel):
@@ -159,6 +159,7 @@ class BuildOut(ORMModel):
     id: str
     name: str
     notes: str | None
+    status: BuildStatus = BuildStatus.draft
     created_at: datetime
     item_count: int = 0
 
@@ -171,6 +172,22 @@ class BuildDetailOut(BuildOut):
 class BuildConvertIn(BaseModel):
     name: str | None = None
     description: str | None = None
+
+
+class BuildCommentIn(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class BuildCommentOut(ORMModel):
+    id: str
+    build_id: str
+    author_role: str
+    body: str
+    created_at: datetime
+
+
+class BuildRejectIn(BaseModel):
+    comment: str | None = Field(default=None, max_length=2000)
 
 
 # ── Dashboard / misc ─────────────────────────────────────────────────────────

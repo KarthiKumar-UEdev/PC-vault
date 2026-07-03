@@ -8,6 +8,7 @@ import { CardTitle, GlassCard } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { useIsAdmin } from '@/lib/use-role';
 import { maskString } from '@/lib/utils';
 
 function MaskedField({ label, value }: { label: string; value: string | null }) {
@@ -37,6 +38,7 @@ function MaskedField({ label, value }: { label: string; value: string | null }) 
 
 export function NetworkPanel({ pcId }: { pcId: string }) {
   const queryClient = useQueryClient();
+  const isAdmin = useIsAdmin();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ip_address: '', mac_address: '', notes: '' });
 
@@ -73,9 +75,11 @@ export function NetworkPanel({ pcId }: { pcId: string }) {
         <CardTitle className="flex items-center gap-2">
           <Wifi size={13} className="text-neon-cyan" /> Network uplink
         </CardTitle>
-        <Button variant="ghost" size="sm" onClick={openEditor}>
-          <Pencil size={13} /> Edit
-        </Button>
+        {isAdmin && (
+          <Button variant="ghost" size="sm" onClick={openEditor}>
+            <Pencil size={13} /> Edit
+          </Button>
+        )}
       </div>
       {net.isPending ? (
         <p className="font-mono text-xs text-slate-500">decrypting…</p>

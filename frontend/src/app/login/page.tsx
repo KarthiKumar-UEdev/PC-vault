@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { api, ApiError } from '@/lib/api';
-import { setToken } from '@/lib/auth';
+import { setSession } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,8 +19,8 @@ export default function LoginPage() {
 
   const login = useMutation({
     mutationFn: () => api.login(password),
-    onSuccess: ({ token }) => {
-      setToken(token);
+    onSuccess: ({ token, role }) => {
+      setSession(token, role);
       router.push('/');
     },
     onError: (e) => {

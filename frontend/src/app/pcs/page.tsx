@@ -9,12 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Input, Select } from '@/components/ui/input';
 import { ErrorState, PageLoader } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
+import { useIsAdmin } from '@/lib/use-role';
 
 export default function PCsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [sort, setSort] = useState<'name' | 'build_date'>('name');
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+  const isAdmin = useIsAdmin();
 
   const pcs = useQuery({
     queryKey: ['pcs', { search, status, sort, order }],
@@ -36,11 +38,13 @@ export default function PCsPage() {
               <Tags size={15} /> Print labels
             </Button>
           </Link>
-          <Link href="/pcs/new">
-            <Button variant="solid">
-              <Plus size={16} /> New PC
-            </Button>
-          </Link>
+          {isAdmin && (
+            <Link href="/pcs/new">
+              <Button variant="solid">
+                <Plus size={16} /> New PC
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 

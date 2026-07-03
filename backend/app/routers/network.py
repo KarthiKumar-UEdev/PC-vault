@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_admin
 from app.crypto import decrypt, encrypt
 from app.database import get_db
 from app.models import PC, NetworkInfo
@@ -33,7 +34,7 @@ def get_network(pc_id: str, db: Session = Depends(get_db)):
     )
 
 
-@router.put("/{pc_id}/network", response_model=NetworkOut)
+@router.put("/{pc_id}/network", response_model=NetworkOut, dependencies=[Depends(require_admin)])
 def put_network(pc_id: str, payload: NetworkIn, db: Session = Depends(get_db)):
     _get_pc(db, pc_id)
     info = db.execute(

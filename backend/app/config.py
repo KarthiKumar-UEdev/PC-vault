@@ -19,10 +19,12 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(BASE_DIR / 'pcvault.db').as_posix()}"
     fernet_key: str = _INSECURE_DEV_KEY
 
-    # Single-admin login. Empty (default) = auth disabled, API is open.
-    # Set this in production — everything except the public QR landing
-    # endpoint and /health then requires a login token.
+    # Role logins. Both empty (default) = auth disabled, API is open.
+    # admin: full control. manager: view everything + approve/reject/comment
+    # on planned builds. When MANAGER_PASSWORD is set, converting a build to
+    # a real PC requires the manager's approval first.
     admin_password: str = ""
+    manager_password: str = ""
 
     frontend_url: str = "http://localhost:3000"
     cors_origins: str = "http://localhost:3000"

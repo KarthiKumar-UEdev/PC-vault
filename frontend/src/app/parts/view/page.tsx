@@ -14,6 +14,7 @@ import { CardTitle, GlassCard } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { ErrorState, PageLoader } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
+import { useIsAdmin } from '@/lib/use-role';
 import { formatAge, formatDate, formatDateTime, formatMoney } from '@/lib/utils';
 
 function PartDetailContent() {
@@ -44,6 +45,8 @@ function PartDetailContent() {
     },
   });
 
+  const isAdmin = useIsAdmin();
+
   if (!id) return <ErrorState message="No part id supplied." />;
   if (part.isPending) return <PageLoader label="Retrieving dossier" />;
   if (part.isError) return <ErrorState message={(part.error as Error).message} />;
@@ -61,17 +64,19 @@ function PartDetailContent() {
           {p.brand} {p.model}
         </h1>
         <ConditionBadge condition={p.condition} />
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setTransferring(true)}>
-            <ArrowRightLeft size={14} /> Transfer
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-            <Pencil size={14} />
-          </Button>
-          <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={14} />
-          </Button>
-        </div>
+        {isAdmin && (
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTransferring(true)}>
+              <ArrowRightLeft size={14} /> Transfer
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Pencil size={14} />
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2 size={14} />
+            </Button>
+          </div>
+        )}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-3">

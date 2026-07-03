@@ -54,6 +54,13 @@ class PartCondition(str, enum.Enum):
     retired = "retired"
 
 
+class BuildStatus(str, enum.Enum):
+    draft = "draft"          # admin still editing
+    pending = "pending"      # submitted, waiting for manager review
+    approved = "approved"    # manager signed off — convert unlocked
+    rejected = "rejected"    # manager sent it back — see comments
+
+
 class PC(Base):
     __tablename__ = "pcs"
 
@@ -150,6 +157,12 @@ class PlannedBuild(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[BuildStatus] = mapped_column(
+        Enum(BuildStatus, name="build_status"),
+        default=BuildStatus.draft,
+        server_default="draft",
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
@@ -157,6 +170,26 @@ class PlannedBuild(Base):
     items: Mapped[list["PlannedBuildItem"]] = relationship(
         back_populates="build", cascade="all, delete-orphan"
     )
+    comments: Mapped[list["BuildComment"]] = relationship(
+        back_populates="build", cascade="all, delete-orphan"
+    )
+
+
+class BuildComment(Base):
+    __tablename__ = "build_comments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    build_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("planned_builds.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    author_role: Mapped[str] = mapped_column(String(20), nullable=False)  # admin | manager
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    build: Mapped["PlannedBuild"] = relationship(back_populates="comments")
 
 
 class PlannedBuildItem(Base):

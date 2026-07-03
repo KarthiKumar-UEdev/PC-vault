@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle, ExternalLink, Plus, Rocket, ShieldCheck, Trash2, X, Zap,
+  AlertTriangle, CheckCircle2, ExternalLink, MessageSquare, Plus, Rocket,
+  Send, ShieldCheck, Trash2, X, XCircle, Zap,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -12,12 +13,13 @@ import { CardTitle, GlassCard } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { ErrorState, PageLoader } from '@/components/ui/skeleton';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { PART_CATALOGS } from '@/lib/catalog';
 import { checkCompatibility } from '@/lib/compat';
-import type { BuildDetail, BuildItem, PartType } from '@/lib/types';
+import type { BuildDetail, BuildItem, BuildStatus, PartType } from '@/lib/types';
 import { PART_TYPE_LABELS } from '@/lib/types';
-import { cn, formatMoney } from '@/lib/utils';
+import { useRole } from '@/lib/use-role';
+import { cn, formatDateTime, formatMoney } from '@/lib/utils';
 
 /* PCPartPicker-style slot table: one row per component category. */
 const SLOTS: { type: PartType; label: string; multi: boolean }[] = [
@@ -34,6 +36,26 @@ const SLOTS: { type: PartType; label: string; multi: boolean }[] = [
   { type: 'other', label: 'Other', multi: true },
 ];
 
+const STATUS_STYLES: Record<BuildStatus, string> = {
+  draft: 'border-line text-slate-400',
+  pending: 'border-neon-amber/50 bg-neon-amber/10 text-neon-amber',
+  approved: 'border-neon-green/50 bg-neon-green/10 text-neon-green',
+  rejected: 'border-neon-red/50 bg-neon-red/10 text-neon-red',
+};
+
+function StatusChip({ status }: { status: BuildStatus }) {
+  return (
+    <span
+      className={cn(
+        'rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+        STATUS_STYLES[status],
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
 function itemType(item: BuildItem): PartType {
   return item.part?.type ?? item.external_type ?? 'other';
 }
@@ -47,16 +69,18 @@ function itemPrice(item: BuildItem): string | null {
 function SlotRow({
   slot,
   items,
+  readOnly,
   onChoose,
   onRemove,
 }: {
   slot: (typeof SLOTS)[number];
   items: BuildItem[];
+  readOnly: boolean;
   onChoose: () => void;
   onRemove: (itemId: string) => void;
 }) {
-  // hide never-used optional rows so the table stays tight
   if (items.length === 0 && (slot.type === 'fan' || slot.type === 'other')) return null;
+  if (items.length === 0 && readOnly) return null;
 
   return (
     <div className="flex flex-col gap-2 border-b border-line px-4 py-3 last:border-b-0 sm:flex-row sm:items-start">
@@ -93,16 +117,18 @@ function SlotRow({
               {item.part ? 'owned' : 'to buy'}
             </span>
             <span className="shrink-0 font-mono text-neon-cyan">{formatMoney(itemPrice(item))}</span>
-            <button
-              onClick={() => onRemove(item.id)}
-              className="text-slate-600 transition-colors hover:text-neon-red"
-              aria-label={`Remove ${slot.label}`}
-            >
-              <X size={15} />
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => onRemove(item.id)}
+                className="text-slate-600 transition-colors hover:text-neon-red"
+                aria-label={`Remove ${slot.label}`}
+              >
+                <X size={15} />
+              </button>
+            )}
           </div>
         ))}
-        {(items.length === 0 || slot.multi) && (
+        {!readOnly && (items.length === 0 || slot.multi) && (
           <button
             onClick={onChoose}
             className="flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-3 py-2 text-sm text-slate-500 transition-all hover:border-neon-cyan/50 hover:text-neon-cyan"
@@ -319,15 +345,84 @@ function CompatBanner({ build }: { build: BuildDetail }) {
   );
 }
 
+/* ── discussion thread ─────────────────────────────────────────────────── */
+
+function CommentThread({ buildId }: { buildId: string }) {
+  const queryClient = useQueryClient();
+  const role = useRole();
+  const [draft, setDraft] = useState('');
+
+  const comments = useQuery({
+    queryKey: ['build-comments', buildId],
+    queryFn: () => api.listComments(buildId),
+  });
+
+  const post = useMutation({
+    mutationFn: () => api.addComment(buildId, draft.trim()),
+    onSuccess: () => {
+      setDraft('');
+      queryClient.invalidateQueries({ queryKey: ['build-comments', buildId] });
+    },
+  });
+
+  return (
+    <GlassCard>
+      <CardTitle className="mb-3 flex items-center gap-2">
+        <MessageSquare size={13} /> Review thread
+      </CardTitle>
+      <ul className="max-h-64 space-y-3 overflow-y-auto pr-1">
+        {(comments.data ?? []).length === 0 && (
+          <li className="text-sm text-slate-500">No comments yet.</li>
+        )}
+        {(comments.data ?? []).map((c) => (
+          <li
+            key={c.id}
+            className={cn(
+              'rounded-lg border px-3 py-2',
+              c.author_role === 'manager'
+                ? 'border-neon-violet/30 bg-neon-violet/5'
+                : 'border-neon-cyan/30 bg-neon-cyan/5',
+            )}
+          >
+            <p className="text-sm text-slate-200">{c.body}</p>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+              {c.author_role} · {formatDateTime(c.created_at)}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex gap-2">
+        <Input
+          placeholder={role === 'manager' ? 'Leave feedback for the admin…' : 'Reply to the manager…'}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && draft.trim() && post.mutate()}
+        />
+        <Button disabled={!draft.trim() || post.isPending} onClick={() => post.mutate()}>
+          <Send size={14} />
+        </Button>
+      </div>
+    </GlassCard>
+  );
+}
+
 /* ── page ──────────────────────────────────────────────────────────────── */
 
 export default function PlannerPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const role = useRole();
+  const isAdmin = role === 'admin';
   const [activeBuildId, setActiveBuildId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newBuild, setNewBuild] = useState({ name: '', notes: '' });
   const [pickingType, setPickingType] = useState<PartType | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectComment, setRejectComment] = useState('');
+  const [actionError, setActionError] = useState('');
+
+  const authStatus = useQuery({ queryKey: ['auth-status'], queryFn: api.authStatus });
+  const managerEnabled = authStatus.data?.manager_enabled ?? false;
 
   const builds = useQuery({ queryKey: ['builds'], queryFn: api.listBuilds });
   const selectedId = activeBuildId ?? builds.data?.[0]?.id ?? null;
@@ -339,9 +434,12 @@ export default function PlannerPage() {
   });
 
   const invalidate = () => {
+    setActionError('');
     queryClient.invalidateQueries({ queryKey: ['builds'] });
     queryClient.invalidateQueries({ queryKey: ['build', selectedId] });
   };
+  const onError = (e: Error) =>
+    setActionError(e instanceof ApiError ? e.message : 'Something went wrong');
 
   const createBuild = useMutation({
     mutationFn: () =>
@@ -352,6 +450,7 @@ export default function PlannerPage() {
       setActiveBuildId(created.id);
       queryClient.invalidateQueries({ queryKey: ['builds'] });
     },
+    onError,
   });
 
   const addPart = useMutation({
@@ -360,6 +459,7 @@ export default function PlannerPage() {
       setPickingType(null);
       invalidate();
     },
+    onError,
   });
 
   const addExternal = useMutation({
@@ -374,11 +474,13 @@ export default function PlannerPage() {
       setPickingType(null);
       invalidate();
     },
+    onError,
   });
 
   const removeItem = useMutation({
     mutationFn: (itemId: string) => api.removeBuildItem(selectedId!, itemId),
     onSuccess: invalidate,
+    onError,
   });
 
   const deleteBuild = useMutation({
@@ -387,6 +489,28 @@ export default function PlannerPage() {
       setActiveBuildId(null);
       queryClient.invalidateQueries();
     },
+    onError,
+  });
+
+  const submit = useMutation({
+    mutationFn: () => api.submitBuild(selectedId!),
+    onSuccess: invalidate,
+    onError,
+  });
+  const approve = useMutation({
+    mutationFn: () => api.approveBuild(selectedId!),
+    onSuccess: invalidate,
+    onError,
+  });
+  const reject = useMutation({
+    mutationFn: () => api.rejectBuild(selectedId!, rejectComment.trim() || undefined),
+    onSuccess: () => {
+      setRejecting(false);
+      setRejectComment('');
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['build-comments', selectedId] });
+    },
+    onError,
   });
 
   const convert = useMutation({
@@ -395,18 +519,22 @@ export default function PlannerPage() {
       queryClient.invalidateQueries();
       router.push(`/pcs/view?id=${pc.id}`);
     },
+    onError,
   });
 
-  if (builds.isPending) return <PageLoader label="Loading blueprints" />;
+  if (builds.isPending || role === null) return <PageLoader label="Loading blueprints" />;
   if (builds.isError) return <ErrorState message={(builds.error as Error).message} />;
 
   const items = build.data?.items ?? [];
+  const status: BuildStatus = build.data?.status ?? 'draft';
   const ownedCost = items
     .filter((i) => i.part)
     .reduce((sum, i) => sum + parseFloat(itemPrice(i) ?? '0'), 0);
   const buyCost = items
     .filter((i) => !i.part)
     .reduce((sum, i) => sum + parseFloat(itemPrice(i) ?? '0'), 0);
+
+  const convertBlocked = managerEnabled && status !== 'approved';
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -416,20 +544,23 @@ export default function PlannerPage() {
             System <span className="neon-text">Builder</span>
           </h1>
           <p className="mt-1 font-mono text-xs text-slate-500">
-            // pick every component, we check the fit
+            {isAdmin ? '// pick every component, we check the fit' : '// manager review mode — read only'}
           </p>
         </div>
-        <Button variant="solid" onClick={() => setCreating(true)}>
-          <Plus size={16} /> New build
-        </Button>
+        {isAdmin && (
+          <Button variant="solid" onClick={() => setCreating(true)}>
+            <Plus size={16} /> New build
+          </Button>
+        )}
       </header>
 
       {builds.data.length === 0 ? (
         <div className="glass p-12 text-center text-slate-500">
           <p className="font-display text-sm uppercase tracking-widest">No builds yet</p>
           <p className="mt-2 text-sm">
-            Start a build to combine inventory parts with shop wishlist items — compatibility and
-            wattage are checked as you go.
+            {isAdmin
+              ? 'Start a build to combine inventory parts with shop wishlist items.'
+              : 'Nothing to review — the admin has not planned any builds.'}
           </p>
         </div>
       ) : (
@@ -441,14 +572,14 @@ export default function PlannerPage() {
                 key={b.id}
                 onClick={() => setActiveBuildId(b.id)}
                 className={cn(
-                  'rounded-lg border px-4 py-2 text-sm transition-all',
+                  'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all',
                   b.id === selectedId
                     ? 'border-neon-cyan/60 bg-neon-cyan/10 text-neon-cyan shadow-glow-cyan'
                     : 'border-line text-slate-400 hover:border-neon-cyan/30',
                 )}
               >
                 {b.name}
-                <span className="ml-2 font-mono text-[10px] text-slate-500">{b.item_count}</span>
+                <StatusChip status={b.status} />
               </button>
             ))}
           </div>
@@ -459,14 +590,32 @@ export default function PlannerPage() {
             <div className="space-y-5">
               <CompatBanner build={build.data} />
 
+              {actionError && (
+                <p className="rounded-xl border border-neon-red/40 bg-neon-red/5 px-4 py-3 text-sm text-neon-red">
+                  {actionError}
+                </p>
+              )}
+
               <div className="grid gap-6 lg:grid-cols-3">
                 {/* slot table */}
                 <GlassCard className="p-0 lg:col-span-2">
                   <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                    <CardTitle>{build.data.name}</CardTitle>
-                    <Button variant="danger" size="sm" onClick={() => deleteBuild.mutate()}>
-                      <Trash2 size={13} />
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <CardTitle>{build.data.name}</CardTitle>
+                      <StatusChip status={status} />
+                    </div>
+                    {isAdmin && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Delete build "${build.data!.name}"? This cannot be undone.`))
+                            deleteBuild.mutate();
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    )}
                   </div>
                   {build.data.notes && (
                     <p className="border-b border-line px-4 py-2.5 text-sm text-slate-400">
@@ -478,13 +627,14 @@ export default function PlannerPage() {
                       key={slot.type}
                       slot={slot}
                       items={items.filter((i) => itemType(i) === slot.type)}
+                      readOnly={!isAdmin}
                       onChoose={() => setPickingType(slot.type)}
                       onRemove={(itemId) => removeItem.mutate(itemId)}
                     />
                   ))}
                 </GlassCard>
 
-                {/* totals + convert */}
+                {/* totals + workflow + thread */}
                 <div className="space-y-6">
                   <GlassCard className="text-center">
                     <CardTitle>Projected cost</CardTitle>
@@ -496,20 +646,79 @@ export default function PlannerPage() {
                       <span className="text-neon-amber">to buy {formatMoney(buyCost)}</span>
                     </div>
                   </GlassCard>
-                  <Button
-                    variant="solid"
-                    className="w-full"
-                    size="lg"
-                    disabled={convert.isPending || items.every((i) => !i.part)}
-                    onClick={() => convert.mutate()}
-                    title="Creates a real PC and installs all owned parts"
-                  >
-                    <Rocket size={16} />
-                    {convert.isPending ? 'Assembling…' : 'Convert to real PC'}
-                  </Button>
-                  <p className="text-center font-mono text-[10px] text-slate-600">
-                    installs owned parts · wishlist items are dropped
-                  </p>
+
+                  {/* workflow actions */}
+                  {isAdmin ? (
+                    <div className="space-y-3">
+                      {managerEnabled && (status === 'draft' || status === 'rejected') && (
+                        <Button
+                          className="w-full"
+                          disabled={submit.isPending || items.length === 0}
+                          onClick={() => submit.mutate()}
+                        >
+                          <Send size={15} />
+                          {status === 'rejected' ? 'Resubmit for approval' : 'Submit for approval'}
+                        </Button>
+                      )}
+                      {managerEnabled && status === 'pending' && (
+                        <p className="rounded-lg border border-neon-amber/40 bg-neon-amber/5 px-3 py-2 text-center text-xs text-neon-amber">
+                          Waiting for manager review…
+                        </p>
+                      )}
+                      <Button
+                        variant="solid"
+                        className="w-full"
+                        size="lg"
+                        disabled={convert.isPending || items.every((i) => !i.part) || convertBlocked}
+                        onClick={() => convert.mutate()}
+                        title={
+                          convertBlocked
+                            ? 'Needs manager approval first'
+                            : 'Creates a real PC and installs all owned parts'
+                        }
+                      >
+                        <Rocket size={16} />
+                        {convert.isPending
+                          ? 'Assembling…'
+                          : convertBlocked
+                            ? 'Convert (needs approval)'
+                            : 'Convert to real PC'}
+                      </Button>
+                      <p className="text-center font-mono text-[10px] text-slate-600">
+                        installs owned parts · wishlist items are dropped
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {status === 'pending' ? (
+                        <>
+                          <Button
+                            variant="solid"
+                            className="w-full"
+                            disabled={approve.isPending}
+                            onClick={() => approve.mutate()}
+                          >
+                            <CheckCircle2 size={16} /> Approve build
+                          </Button>
+                          <Button
+                            variant="danger"
+                            className="w-full"
+                            onClick={() => setRejecting(true)}
+                          >
+                            <XCircle size={16} /> Reject with feedback
+                          </Button>
+                        </>
+                      ) : (
+                        <p className="rounded-lg border border-line px-3 py-2 text-center font-mono text-xs text-slate-500">
+                          {status === 'approved' && 'You approved this build.'}
+                          {status === 'rejected' && 'You sent this back — see the thread.'}
+                          {status === 'draft' && 'Not submitted for review yet.'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <CommentThread buildId={build.data.id} />
                 </div>
               </div>
             </div>
@@ -546,6 +755,27 @@ export default function PlannerPage() {
             onClick={() => createBuild.mutate()}
           >
             Create
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* reject dialog (manager) */}
+      <Dialog open={rejecting} onClose={() => setRejecting(false)} title="Reject build">
+        <div className="space-y-3">
+          <Label>Feedback for the admin (optional)</Label>
+          <Textarea
+            autoFocus
+            placeholder="What should change before you approve it?"
+            value={rejectComment}
+            onChange={(e) => setRejectComment(e.target.value)}
+          />
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setRejecting(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" disabled={reject.isPending} onClick={() => reject.mutate()}>
+            <XCircle size={15} /> Reject
           </Button>
         </div>
       </Dialog>

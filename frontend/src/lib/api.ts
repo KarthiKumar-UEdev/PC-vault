@@ -1,5 +1,6 @@
 import type {
   Build,
+  BuildComment,
   BuildDetail,
   BuildItem,
   NetworkInfo,
@@ -65,9 +66,10 @@ function qs(params: Record<string, string | number | boolean | undefined>): stri
 
 export const api = {
   // Auth
-  authStatus: () => request<{ auth_required: boolean }>('/auth/status'),
+  authStatus: () =>
+    request<{ auth_required: boolean; manager_enabled: boolean }>('/auth/status'),
   login: (password: string) =>
-    request<{ token: string; expires_in: number }>('/auth/login', {
+    request<{ token: string; role: 'admin' | 'manager'; expires_in: number }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ password }),
     }),
@@ -139,6 +141,23 @@ export const api = {
     request<{ ok: boolean }>(`/builds/${buildId}/items/${itemId}`, { method: 'DELETE' }),
   convertBuild: (buildId: string, data: { name?: string; description?: string } = {}) =>
     request<PCDetail>(`/builds/${buildId}/convert`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Approval workflow
+  submitBuild: (buildId: string) =>
+    request<BuildDetail>(`/builds/${buildId}/submit`, { method: 'POST', body: '{}' }),
+  approveBuild: (buildId: string) =>
+    request<BuildDetail>(`/builds/${buildId}/approve`, { method: 'POST', body: '{}' }),
+  rejectBuild: (buildId: string, comment?: string) =>
+    request<BuildDetail>(`/builds/${buildId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ comment: comment || null }),
+    }),
+  listComments: (buildId: string) => request<BuildComment[]>(`/builds/${buildId}/comments`),
+  addComment: (buildId: string, body: string) =>
+    request<BuildComment>(`/builds/${buildId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
 
   // Alerts & dashboard
   warrantyAlerts: (days = 30) => request<Part[]>(`/alerts/warranty?days=${days}`),

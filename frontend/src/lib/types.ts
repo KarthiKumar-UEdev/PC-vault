@@ -72,12 +72,23 @@ export interface BuildItem {
   part: Part | null;
 }
 
+export type BuildStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
 export interface Build {
   id: string;
   name: string;
   notes: string | null;
+  status: BuildStatus;
   created_at: string;
   item_count: number;
+}
+
+export interface BuildComment {
+  id: string;
+  build_id: string;
+  author_role: 'admin' | 'manager';
+  body: string;
+  created_at: string;
 }
 
 export interface BuildDetail extends Build {

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
 from app.models import PC, PCStatus
@@ -72,7 +73,7 @@ def list_pcs(
     return [_pc_out(pc) for pc in pcs]
 
 
-@router.post("", response_model=PCDetailOut, status_code=201)
+@router.post("", response_model=PCDetailOut, status_code=201, dependencies=[Depends(require_admin)])
 def create_pc(payload: PCCreate, db: Session = Depends(get_db)):
     pc = PC(**payload.model_dump())
     db.add(pc)
@@ -97,7 +98,7 @@ def get_pc(pc_id: str, db: Session = Depends(get_db)):
     return _pc_detail(_get_pc_or_404(db, pc_id))
 
 
-@router.patch("/{pc_id}", response_model=PCDetailOut)
+@router.patch("/{pc_id}", response_model=PCDetailOut, dependencies=[Depends(require_admin)])
 def update_pc(pc_id: str, payload: PCUpdate, db: Session = Depends(get_db)):
     pc = _get_pc_or_404(db, pc_id)
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -106,7 +107,7 @@ def update_pc(pc_id: str, payload: PCUpdate, db: Session = Depends(get_db)):
     return _pc_detail(_get_pc_or_404(db, pc_id))
 
 
-@router.delete("/{pc_id}", response_model=OkOut)
+@router.delete("/{pc_id}", response_model=OkOut, dependencies=[Depends(require_admin)])
 def delete_pc(pc_id: str, db: Session = Depends(get_db)):
     pc = _get_pc_or_404(db, pc_id)
     # Parts return to inventory rather than being deleted

@@ -14,6 +14,7 @@ import { CardTitle, GlassCard } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { ErrorState, PageLoader } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
+import { useIsAdmin } from '@/lib/use-role';
 import { useViewerStore } from '@/lib/store';
 import { PART_TYPE_LABELS } from '@/lib/types';
 import { formatAge, formatDate, formatMoney } from '@/lib/utils';
@@ -96,6 +97,7 @@ function PCDetailContent() {
   const queryClient = useQueryClient();
   const id = params.get('id') ?? '';
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const isAdmin = useIsAdmin();
   const select = useViewerStore((s) => s.select);
 
   // reset 3D selection when navigating between PCs
@@ -144,12 +146,16 @@ function PCDetailContent() {
           <Button variant="outline" size="sm" onClick={downloadQR}>
             <Download size={14} /> <QrCode size={14} /> QR
           </Button>
-          <Link href={`/pcs/edit?id=${data.id}`}>
-            <Button variant="outline" size="sm"><Pencil size={14} /> Edit</Button>
-          </Link>
-          <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={14} />
-          </Button>
+          {isAdmin && (
+            <>
+              <Link href={`/pcs/edit?id=${data.id}`}>
+                <Button variant="outline" size="sm"><Pencil size={14} /> Edit</Button>
+              </Link>
+              <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 size={14} />
+              </Button>
+            </>
+          )}
         </div>
       </header>
 

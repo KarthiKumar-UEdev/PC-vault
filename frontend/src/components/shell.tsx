@@ -13,7 +13,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { clearToken, getToken } from '@/lib/auth';
+import { clearToken, getRole, getToken } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 const NAV = [
@@ -82,7 +82,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="flex items-center justify-between px-5 pb-5">
-          <p className="font-mono text-[10px] text-slate-600">v1.0 // vault online</p>
+          <p className="font-mono text-[10px] text-slate-600">
+            v1.0 //{' '}
+            {hasSession && getRole() === 'manager' ? (
+              <span className="text-neon-violet">manager mode</span>
+            ) : (
+              'vault online'
+            )}
+          </p>
           {hasSession && (
             <button
               onClick={logout}
