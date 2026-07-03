@@ -1,0 +1,40 @@
+# ── PC Vault static frontend — Apache/cPanel config ─────────────────────────
+# Uploaded automatically as part of the Next.js export (lives in frontend/public/).
+
+Options -Indexes
+DirectorySlash On
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # 1. Never rewrite the API (only relevant if the backend is mounted at
+  #    /api on this same domain via "Setup Python App").
+  RewriteRule ^api(/|$) - [L]
+
+  # 2. Serve real files and directories untouched.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 3. SPA-style fallback: /pcs/view?id=x refreshes fine because the export
+  #    (trailingSlash: true) writes pcs/view/index.html — this rule catches
+  #    extension-less deep links that lack the trailing slash.
+  RewriteCond %{REQUEST_URI} !\.[a-zA-Z0-9]{1,8}$
+  RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
+  RewriteRule ^(.*?)/?$ /$1/index.html [L]
+</IfModule>
+
+# Unknown routes get the exported 404 page
+ErrorDocument 404 /404.html
+
+# ── caching ──────────────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+  # Hashed Next.js assets are immutable
+  <FilesMatch "\.(js|css|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # HTML must always revalidate so deploys show up instantly
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
