@@ -11,8 +11,8 @@ import { api } from '@/lib/api';
 export default function LabelsPage() {
   const pcs = useQuery({ queryKey: ['pcs', 'labels'], queryFn: () => api.listPCs() });
 
-  if (pcs.isLoading) return <PageLoader />;
-  if (pcs.isError) return <ErrorState error={pcs.error} />;
+  if (pcs.isLoading) return <PageLoader label="Loading fleet" />;
+  if (pcs.isError) return <ErrorState message={(pcs.error as Error).message} />;
 
   return (
     <div className="mx-auto max-w-4xl">
