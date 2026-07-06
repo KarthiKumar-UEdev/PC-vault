@@ -19,8 +19,13 @@ pc-vault/
 │   ├── scripts/           # seed.py, send_warranty_alerts.py (cron)
 │   └── passenger_wsgi.py  # cPanel Passenger entrypoint (a2wsgi bridge)
 ├── DEPLOY.md              # step-by-step cPanel deployment guide
+├── SYNC.md                # working across multiple PCs/accounts via git
 └── README.md
 ```
+
+> Moving the project to another PC or account? Follow **[SYNC.md](SYNC.md)** —
+> sync by git, and recreate `.venv` / `node_modules` / `.env` on each machine
+> (never copy them).
 
 ## Local development (no Docker)
 
