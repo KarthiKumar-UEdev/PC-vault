@@ -19,6 +19,7 @@ pc-vault/
 │   ├── scripts/           # seed.py, send_warranty_alerts.py (cron)
 │   └── passenger_wsgi.py  # cPanel Passenger entrypoint (a2wsgi bridge)
 ├── DEPLOY.md              # step-by-step cPanel deployment guide
+├── SETUP.md               # users & passwords + before/after-deploy checklist
 ├── SYNC.md                # working across multiple PCs/accounts via git
 └── README.md
 ```
@@ -85,13 +86,24 @@ NEXT_PUBLIC_API_URL=https://api.yourdomain.com npm run build   # emits frontend/
 Everything in `out/` (including the pre-configured `.htaccess`) is uploaded to
 `public_html`. Full instructions: [DEPLOY.md](DEPLOY.md).
 
+## Users & roles
+
+Logins live in the `users` table (PBKDF2-hashed). The first admin/manager
+accounts are bootstrapped from env vars; after that, manage credentials from
+the in-app **Settings** page or `python scripts/manage_users.py`
+(list / add / set-password / set-role / rename / delete). Full guide,
+including the before/after-deploy checklist: **[SETUP.md](SETUP.md)**.
+
 ## Notes & conventions
 
 - **Dynamic routes** use query params (`/pcs/view?id=…`, `/parts/view?id=…`,
   `/pc/qr?t=…`) because `output: 'export'` cannot render unknown path segments.
   QR codes therefore encode `{FRONTEND_URL}/pc/qr?t={token}`.
-- **Parts with `pc_id = NULL` are "in inventory."** Every move via
-  `POST /parts/{id}/transfer` writes a `transfer_logs` row automatically.
+- **Parts with `pc_id = NULL` *and* `employee_id = NULL` are "in stock."**
+  Components install into PCs; standalone devices (laptops, VR, monitors…)
+  are assigned to employees; network gear stays unassigned and shows up on
+  the Network page. Every PC move via `POST /parts/{id}/transfer` writes a
+  `transfer_logs` row automatically.
 - **IP/MAC addresses** are Fernet-encrypted before hitting the database and
   only decrypted in API responses. Rotating `FERNET_KEY` makes existing
   ciphertext unreadable (shows `<decryption failed>`).

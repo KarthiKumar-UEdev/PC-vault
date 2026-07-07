@@ -60,13 +60,19 @@ copy .env.example .env        # Windows      (macOS/Linux: cp .env.example .env)
 ```
 
 Now edit `backend/.env`. For local dev the defaults are fine (SQLite, open
-API), but to match how we've been running it here, set the two dev passwords
+API), but to match how we've been running it here, set the bootstrap accounts
 so the login + roles work:
 
 ```
-ADMIN_PASSWORD=vault123
+ADMIN_USERNAME=Karthi Kumar
+ADMIN_PASSWORD=ctpl
+MANAGER_USERNAME=manager
 MANAGER_PASSWORD=manager123
 ```
+
+These only seed the `users` table on the very first startup — after that,
+credentials live in the database and are changed from the app's **Settings**
+page, not the env file.
 
 `FERNET_KEY` already has a working dev key in `.env.example`. Only generate a
 new one if you care about the encrypted IP/MAC demo data — and note that a new
@@ -190,9 +196,11 @@ npm install
   `CORS_ORIGINS` (default `http://localhost:3000`). If you run the frontend on
   a different port, update `CORS_ORIGINS` in `backend/.env` and restart uvicorn.
 
-- **Login says wrong password / API returns 401 everywhere** — you set
-  `ADMIN_PASSWORD` in `.env` but the backend was already running. Restart
-  uvicorn after editing `.env`. (With no passwords set, auth is disabled and
+- **Login says wrong password / API returns 401 everywhere** — the bootstrap
+  env vars only apply on first startup with an empty `users` table; after
+  that the password is whatever was last saved on the Settings page. If you
+  just created `.env`, restart uvicorn. (With no users and no passwords set,
+  auth is disabled and
   the API is open — fine for solo dev, never for production.)
 
 ---

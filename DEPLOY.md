@@ -86,8 +86,8 @@ In **Setup Python App** → your app → **Environment variables** → *Add vari
 |---|---|
 | `DATABASE_URL` | `mysql+pymysql://USER_pcvault:DB_PASSWORD@localhost:3306/USER_pcvault` |
 | `FERNET_KEY` | output of the keygen command below — never the example key |
-| `ADMIN_PASSWORD` | a strong login password — **required in production**; leaving it unset leaves the whole API open to the internet |
-| `MANAGER_PASSWORD` | optional second login with view-only access + build approval rights; when set, builds need manager approval before "Convert to real PC" works |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | bootstrap admin account, written to the `users` table on first startup — a strong password is **required in production**; no accounts at all leaves the whole API open to the internet. After first startup, credentials are managed from the app's **Settings** page and these values are ignored |
+| `MANAGER_USERNAME` / `MANAGER_PASSWORD` | optional second bootstrap account with view-only access + build approval rights; when a manager account exists, builds need manager approval before "Convert to real PC" works |
 | `FRONTEND_URL` | `https://yourdomain.com` |
 | `CORS_ORIGINS` | `https://yourdomain.com,https://www.yourdomain.com` |
 | `SMTP_HOST` | `mail.yourdomain.com` (cPanel → Email Accounts → Connect Devices) |
