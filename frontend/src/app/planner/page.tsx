@@ -5,9 +5,9 @@ import {
   AlertTriangle, CheckCircle2, ExternalLink, MessageSquare, Plus, Rocket,
   Send, ShieldCheck, Trash2, X, XCircle, Zap,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
-import { ConditionBadge, TypeBadge } from '@/components/badges';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useMemo, useState } from 'react';
+import { BuildStatusChip, ConditionBadge, TypeBadge } from '@/components/badges';
 import { Button } from '@/components/ui/button';
 import { CardTitle, GlassCard } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
@@ -35,26 +35,6 @@ const SLOTS: { type: PartType; label: string; multi: boolean }[] = [
   { type: 'fan', label: 'Case Fans', multi: true },
   { type: 'other', label: 'Other', multi: true },
 ];
-
-const STATUS_STYLES: Record<BuildStatus, string> = {
-  draft: 'border-line text-slate-400',
-  pending: 'border-neon-amber/50 bg-neon-amber/10 text-neon-amber',
-  approved: 'border-neon-green/50 bg-neon-green/10 text-neon-green',
-  rejected: 'border-neon-red/50 bg-neon-red/10 text-neon-red',
-};
-
-function StatusChip({ status }: { status: BuildStatus }) {
-  return (
-    <span
-      className={cn(
-        'rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider',
-        STATUS_STYLES[status],
-      )}
-    >
-      {status}
-    </span>
-  );
-}
 
 function itemType(item: BuildItem): PartType {
   return item.part?.type ?? item.external_type ?? 'other';
@@ -408,9 +388,10 @@ function CommentThread({ buildId }: { buildId: string }) {
 
 /* ── page ──────────────────────────────────────────────────────────────── */
 
-export default function PlannerPage() {
+function PlannerContent() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const role = useRole();
   const isAdmin = role === 'admin';
   const [activeBuildId, setActiveBuildId] = useState<string | null>(null);
@@ -425,7 +406,11 @@ export default function PlannerPage() {
   const managerEnabled = authStatus.data?.manager_enabled ?? false;
 
   const builds = useQuery({ queryKey: ['builds'], queryFn: api.listBuilds });
-  const selectedId = activeBuildId ?? builds.data?.[0]?.id ?? null;
+  // deep link from the approvals deck: /planner?id=<build>
+  const urlId = searchParams.get('id');
+  const linkedId =
+    urlId && builds.data?.some((b) => b.id === urlId) ? urlId : null;
+  const selectedId = activeBuildId ?? linkedId ?? builds.data?.[0]?.id ?? null;
 
   const build = useQuery({
     queryKey: ['build', selectedId],
@@ -579,7 +564,7 @@ export default function PlannerPage() {
                 )}
               >
                 {b.name}
-                <StatusChip status={b.status} />
+                <BuildStatusChip status={b.status} />
               </button>
             ))}
           </div>
@@ -602,7 +587,7 @@ export default function PlannerPage() {
                   <div className="flex items-center justify-between border-b border-line px-4 py-3">
                     <div className="flex items-center gap-3">
                       <CardTitle>{build.data.name}</CardTitle>
-                      <StatusChip status={status} />
+                      <BuildStatusChip status={status} />
                     </div>
                     {isAdmin && (
                       <Button
@@ -791,5 +776,14 @@ export default function PlannerPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function PlannerPage() {
+  // useSearchParams needs a Suspense boundary under `output: 'export'`
+  return (
+    <Suspense fallback={<PageLoader label="Loading blueprints" />}>
+      <PlannerContent />
+    </Suspense>
   );
 }

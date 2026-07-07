@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { PartCondition, PartType, PCStatus } from '@/lib/types';
+import type { BuildStatus, PartCondition, PartType, PCStatus } from '@/lib/types';
 import { PART_TYPE_LABELS } from '@/lib/types';
 
 const CONDITION_STYLES: Record<PartCondition, string> = {
@@ -36,6 +36,26 @@ export function StatusDot({ status, className }: { status: PCStatus; className?:
       )}
       title={status}
     />
+  );
+}
+
+const BUILD_STATUS_STYLES: Record<BuildStatus, string> = {
+  draft: 'border-line text-slate-400',
+  pending: 'border-neon-amber/50 bg-neon-amber/10 text-neon-amber',
+  approved: 'border-neon-green/50 bg-neon-green/10 text-neon-green',
+  rejected: 'border-neon-red/50 bg-neon-red/10 text-neon-red',
+};
+
+export function BuildStatusChip({ status }: { status: BuildStatus }) {
+  return (
+    <span
+      className={cn(
+        'rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider',
+        BUILD_STATUS_STYLES[status],
+      )}
+    >
+      {status}
+    </span>
   );
 }
 

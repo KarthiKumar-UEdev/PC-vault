@@ -2,13 +2,18 @@ export type PCStatus = 'active' | 'retired' | 'planned';
 
 export type PartType =
   | 'cpu' | 'gpu' | 'ram' | 'psu' | 'case' | 'cooler'
-  | 'ssd' | 'hdd' | 'mobo' | 'fan' | 'other';
+  | 'ssd' | 'hdd' | 'mobo' | 'fan'
+  | 'laptop' | 'tablet' | 'monitor' | 'vr' | 'peripheral' | 'audio'
+  | 'printer' | 'camera' | 'ups'
+  | 'router' | 'switch' | 'ap'
+  | 'other';
 
 export type PartCondition = 'new' | 'good' | 'fair' | 'faulty' | 'rma' | 'retired';
 
 export interface Part {
   id: string;
   pc_id: string | null;
+  employee_id: string | null;
   type: PartType;
   brand: string;
   model: string;
@@ -20,6 +25,7 @@ export interface Part {
   specs: Record<string, unknown> | null;
   created_at: string;
   pc_name: string | null;
+  employee_name: string | null;
 }
 
 export interface PartAging extends Part {
@@ -33,9 +39,27 @@ export interface PC {
   status: PCStatus;
   qr_code: string;
   build_date: string | null;
+  employee_id: string | null;
   created_at: string;
   part_count: number;
   total_value: string;
+  employee_name: string | null;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  title: string | null;
+  email: string | null;
+  department: string | null;
+  created_at: string;
+  pc_count: number;
+  device_count: number;
+}
+
+export interface EmployeeDetail extends Employee {
+  pcs: PC[];
+  parts: Part[];
 }
 
 export interface PCDetail extends PC {
@@ -111,6 +135,14 @@ export interface PCInput {
   description?: string | null;
   status?: PCStatus;
   build_date?: string | null;
+  employee_id?: string | null;
+}
+
+export interface EmployeeInput {
+  name: string;
+  title?: string | null;
+  email?: string | null;
+  department?: string | null;
 }
 
 export interface PartInput {
@@ -127,7 +159,9 @@ export interface PartInput {
 }
 
 export const PART_TYPES: PartType[] = [
-  'cpu', 'gpu', 'ram', 'psu', 'case', 'cooler', 'ssd', 'hdd', 'mobo', 'fan', 'other',
+  'cpu', 'gpu', 'ram', 'psu', 'case', 'cooler', 'ssd', 'hdd', 'mobo', 'fan',
+  'laptop', 'tablet', 'monitor', 'vr', 'peripheral', 'audio', 'printer',
+  'camera', 'ups', 'router', 'switch', 'ap', 'other',
 ];
 
 export const PART_CONDITIONS: PartCondition[] = [
@@ -137,5 +171,36 @@ export const PART_CONDITIONS: PartCondition[] = [
 export const PART_TYPE_LABELS: Record<PartType, string> = {
   cpu: 'CPU', gpu: 'GPU', ram: 'RAM', psu: 'PSU (SMPS)', case: 'Case',
   cooler: 'Cooler', ssd: 'SSD', hdd: 'HDD', mobo: 'Motherboard',
-  fan: 'Fan', other: 'Other',
+  fan: 'Fan',
+  laptop: 'Laptop', tablet: 'Tablet', monitor: 'Monitor', vr: 'VR Headset',
+  peripheral: 'Peripheral', audio: 'Audio', printer: 'Printer',
+  camera: 'Camera', ups: 'UPS',
+  router: 'Router', switch: 'Network Switch', ap: 'Access Point',
+  other: 'Other',
 };
+
+/** Category grouping for filters and grouped type selects. */
+export type PartCategory = 'components' | 'devices' | 'network';
+
+/** Which category a type belongs to; 'other' returns null (uncategorized). */
+export function partCategory(type: PartType): PartCategory | null {
+  return PART_CATEGORIES.find((c) => c.types.includes(type))?.key ?? null;
+}
+
+export const PART_CATEGORIES: { key: PartCategory; label: string; types: PartType[] }[] = [
+  {
+    key: 'components',
+    label: 'PC Components',
+    types: ['cpu', 'gpu', 'ram', 'psu', 'case', 'cooler', 'ssd', 'hdd', 'mobo', 'fan'],
+  },
+  {
+    key: 'devices',
+    label: 'Devices',
+    types: ['laptop', 'tablet', 'monitor', 'vr', 'peripheral', 'audio', 'printer', 'camera', 'ups'],
+  },
+  {
+    key: 'network',
+    label: 'Network',
+    types: ['router', 'switch', 'ap'],
+  },
+];

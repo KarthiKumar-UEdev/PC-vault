@@ -18,8 +18,8 @@ function modelForPC(pcId: string): string {
   return MODEL_URLS[Math.abs(hash) % MODEL_URLS.length];
 }
 
-/* ── palette per part type ─────────────────────────────────────────── */
-const TYPE_COLORS: Record<PartType, string> = {
+/* ── palette per part type (device types fall back to `other`) ──────── */
+const TYPE_COLORS: Partial<Record<PartType, string>> = {
   cpu: '#22d3ee',
   gpu: '#a78bfa',
   ram: '#e879f9',
@@ -34,7 +34,7 @@ const TYPE_COLORS: Record<PartType, string> = {
 };
 
 /* pin height as a fraction of the model's height (0 = floor, 1 = top) */
-const PIN_HEIGHTS: Record<PartType, number> = {
+const PIN_HEIGHTS: Partial<Record<PartType, number>> = {
   case: 0.95,
   cooler: 0.85,
   cpu: 0.76,
@@ -64,7 +64,7 @@ function CalloutPin({
   const { selectedPartId, select, hover } = useViewerStore();
   const [hovered, setHovered] = useState(false);
   const selected = selectedPartId === part.id;
-  const color = TYPE_COLORS[part.type];
+  const color = TYPE_COLORS[part.type] ?? TYPE_COLORS.other!;
   const active = hovered || selected;
   const intensity = selected ? 3 : hovered ? 2 : 1.1;
 
@@ -150,12 +150,12 @@ function ShowcaseModel({ url, parts }: { url: string; parts: Part[] }) {
   // pins alternate left/right, tallest slots first, so labels never overlap
   const pins = useMemo(() => {
     const sorted = [...parts].sort(
-      (a, b) => PIN_HEIGHTS[b.type] - PIN_HEIGHTS[a.type],
+      (a, b) => (PIN_HEIGHTS[b.type] ?? 0.62) - (PIN_HEIGHTS[a.type] ?? 0.62),
     );
     return sorted.map((part, i) => {
       const side = i % 2 === 0 ? 1 : -1;
       const x = side * (halfWidth + 0.55);
-      const y = FLOOR_Y + PIN_HEIGHTS[part.type] * MODEL_HEIGHT;
+      const y = FLOOR_Y + (PIN_HEIGHTS[part.type] ?? 0.62) * MODEL_HEIGHT;
       return {
         part,
         position: [x, y, 0] as [number, number, number],

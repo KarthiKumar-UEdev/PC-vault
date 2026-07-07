@@ -7,7 +7,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { api } from '@/lib/api';
 import type { Part, PartCondition, PartInput, PartType } from '@/lib/types';
-import { PART_CONDITIONS, PART_TYPE_LABELS, PART_TYPES } from '@/lib/types';
+import { PART_CATEGORIES, PART_CONDITIONS, PART_TYPE_LABELS } from '@/lib/types';
 
 interface FormState {
   type: PartType;
@@ -104,14 +104,19 @@ export function PartFormDialog({
   const valid = form.brand.trim().length > 0 && form.model.trim().length > 0;
 
   return (
-    <Dialog open={open} onClose={onClose} title={part ? 'Edit part' : 'Register part'}>
+    <Dialog open={open} onClose={onClose} title={part ? 'Edit asset' : 'Register asset'}>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Type</Label>
           <Select value={form.type} onChange={set('type')}>
-            {PART_TYPES.map((t) => (
-              <option key={t} value={t}>{PART_TYPE_LABELS[t]}</option>
+            {PART_CATEGORIES.map((group) => (
+              <optgroup key={group.key} label={group.label}>
+                {group.types.map((t) => (
+                  <option key={t} value={t}>{PART_TYPE_LABELS[t]}</option>
+                ))}
+              </optgroup>
             ))}
+            <option value="other">{PART_TYPE_LABELS.other}</option>
           </Select>
         </div>
         <div>
@@ -139,7 +144,7 @@ export function PartFormDialog({
           <Input type="date" value={form.purchase_date} onChange={set('purchase_date')} />
         </div>
         <div>
-          <Label>Price (USD)</Label>
+          <Label>Price (₹)</Label>
           <Input
             type="number" min="0" step="0.01"
             value={form.purchase_price} onChange={set('purchase_price')} placeholder="449.00"

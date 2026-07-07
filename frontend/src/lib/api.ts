@@ -3,6 +3,9 @@ import type {
   BuildComment,
   BuildDetail,
   BuildItem,
+  Employee,
+  EmployeeDetail,
+  EmployeeInput,
   NetworkInfo,
   Part,
   PartAging,
@@ -68,11 +71,17 @@ export const api = {
   // Auth
   authStatus: () =>
     request<{ auth_required: boolean; manager_enabled: boolean }>('/auth/status'),
-  login: (password: string) =>
-    request<{ token: string; role: 'admin' | 'manager'; expires_in: number }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    }),
+  login: (username: string, password: string) =>
+    request<{ token: string; role: 'admin' | 'manager'; username: string; expires_in: number }>(
+      '/auth/login',
+      { method: 'POST', body: JSON.stringify({ username, password }) },
+    ),
+  me: () => request<{ role: 'admin' | 'manager'; username: string }>('/auth/me'),
+  updateProfile: (data: { current_password: string; username?: string; new_password?: string }) =>
+    request<{ token: string; role: 'admin' | 'manager'; username: string; expires_in: number }>(
+      '/auth/profile',
+      { method: 'PATCH', body: JSON.stringify(data) },
+    ),
 
   // PCs
   listPCs: (params: { status?: string; search?: string; sort?: string; order?: string } = {}) =>
@@ -93,8 +102,8 @@ export const api = {
   // Parts
   listParts: (
     params: {
-      type?: string; condition?: string; pc_id?: string; in_inventory?: boolean;
-      search?: string; sort?: string; order?: string;
+      type?: string; condition?: string; pc_id?: string; employee_id?: string;
+      in_inventory?: boolean; search?: string; sort?: string; order?: string;
     } = {},
   ) => request<Part[]>(`/parts${qs(params)}`),
   getPart: (id: string) => request<Part>(`/parts/${id}`),
@@ -108,6 +117,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ to_pc_id: toPcId }),
     }),
+  assignPart: (id: string, employeeId: string | null) =>
+    request<Part>(`/parts/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ employee_id: employeeId }),
+    }),
+
+  // Employees
+  listEmployees: (search?: string) => request<Employee[]>(`/employees${qs({ search })}`),
+  getEmployee: (id: string) => request<EmployeeDetail>(`/employees/${id}`),
+  createEmployee: (data: EmployeeInput) =>
+    request<EmployeeDetail>('/employees', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmployee: (id: string, data: Partial<EmployeeInput>) =>
+    request<EmployeeDetail>(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEmployee: (id: string) =>
+    request<{ ok: boolean }>(`/employees/${id}`, { method: 'DELETE' }),
   partHistory: (id: string) => request<TransferLog[]>(`/parts/${id}/history`),
   partsAging: () => request<PartAging[]>('/parts/aging'),
 

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { KeyRound, Lock } from 'lucide-react';
+import { KeyRound, Lock, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,19 +12,22 @@ import { setSession } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const { data: status } = useQuery({ queryKey: ['auth-status'], queryFn: api.authStatus });
 
   const login = useMutation({
-    mutationFn: () => api.login(password),
-    onSuccess: ({ token, role }) => {
-      setSession(token, role);
-      router.push('/');
+    mutationFn: () => api.login(username.trim(), password),
+    onSuccess: ({ token, role, username: name }) => {
+      setSession(token, role, name);
+      router.push(role === 'manager' ? '/approvals/' : '/');
     },
     onError: (e) => {
-      setError(e instanceof ApiError && e.status === 401 ? 'Wrong password.' : e.message);
+      setError(
+        e instanceof ApiError && e.status === 401 ? 'Wrong username or password.' : e.message,
+      );
     },
   });
 
@@ -51,7 +54,7 @@ export default function LoginPage() {
 
         {status && !status.auth_required ? (
           <p className="text-center text-sm text-slate-400">
-            Authentication is disabled on this server (no <code className="font-mono text-neon-amber">ADMIN_PASSWORD</code> set)
+            Authentication is disabled on this server (no accounts configured)
             — the vault is open.{' '}
             <button className="text-neon-cyan hover:underline" onClick={() => router.push('/')}>
               Enter →
@@ -63,15 +66,30 @@ export default function LoginPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setError('');
-              if (password) login.mutate();
+              if (username.trim() && password) login.mutate();
             }}
           >
             <div>
-              <Label htmlFor="password">Admin password</Label>
+              <Label htmlFor="username">Username</Label>
+              <div className="relative">
+                <UserRound size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Input
+                  id="username"
+                  autoFocus
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="your username"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
-                autoFocus
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -79,7 +97,12 @@ export default function LoginPage() {
               />
             </div>
             {error && <p className="text-sm text-neon-red">{error}</p>}
-            <Button type="submit" variant="solid" className="w-full" disabled={!password || login.isPending}>
+            <Button
+              type="submit"
+              variant="solid"
+              className="w-full"
+              disabled={!username.trim() || !password || login.isPending}
+            >
               <KeyRound size={15} />
               {login.isPending ? 'Verifying…' : 'Unlock vault'}
             </Button>

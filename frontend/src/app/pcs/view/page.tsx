@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Download, Pencil, QrCode, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Download, Pencil, QrCode, Trash2, UserRound, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -142,6 +142,14 @@ function PCDetailContent() {
         </Link>
         <h1 className="font-display text-2xl font-bold text-slate-100">{data.name}</h1>
         <StatusBadge status={data.status} />
+        {data.employee_name && (
+          <Link
+            href="/employees"
+            className="inline-flex items-center gap-1.5 rounded-full border border-neon-green/40 bg-neon-green/10 px-2.5 py-1 font-mono text-[11px] text-neon-green transition-all hover:border-neon-green/70"
+          >
+            <UserRound size={12} /> {data.employee_name}
+          </Link>
+        )}
         <div className="ml-auto flex gap-2">
           <Button variant="outline" size="sm" onClick={downloadQR}>
             <Download size={14} /> <QrCode size={14} /> QR

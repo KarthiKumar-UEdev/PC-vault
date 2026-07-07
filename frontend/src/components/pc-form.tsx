@@ -21,6 +21,7 @@ interface Details {
   description: string;
   status: PCStatus;
   build_date: string;
+  employee_id: string;
 }
 
 export function PCForm({ pcId }: { pcId?: string }) {
@@ -30,7 +31,7 @@ export function PCForm({ pcId }: { pcId?: string }) {
 
   const [step, setStep] = useState(0);
   const [details, setDetails] = useState<Details>({
-    name: '', description: '', status: 'active', build_date: '',
+    name: '', description: '', status: 'active', build_date: '', employee_id: '',
   });
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
   const [removedParts, setRemovedParts] = useState<Set<string>>(new Set());
@@ -55,6 +56,8 @@ export function PCForm({ pcId }: { pcId?: string }) {
     queryFn: () => api.listParts({ in_inventory: true }),
   });
 
+  const employees = useQuery({ queryKey: ['employees'], queryFn: () => api.listEmployees() });
+
   useEffect(() => {
     if (existing.data) {
       setDetails({
@@ -62,6 +65,7 @@ export function PCForm({ pcId }: { pcId?: string }) {
         description: existing.data.description ?? '',
         status: existing.data.status,
         build_date: existing.data.build_date ?? '',
+        employee_id: existing.data.employee_id ?? '',
       });
     }
   }, [existing.data]);
@@ -83,6 +87,7 @@ export function PCForm({ pcId }: { pcId?: string }) {
         description: details.description.trim() || null,
         status: details.status,
         build_date: details.build_date || null,
+        employee_id: details.employee_id || null,
       };
       const pc = editing ? await api.updatePC(pcId!, payload) : await api.createPC(payload);
       // step 2: move chosen inventory parts in, evicted parts out
@@ -191,6 +196,20 @@ export function PCForm({ pcId }: { pcId?: string }) {
                     onChange={(e) => setDetails((d) => ({ ...d, build_date: e.target.value }))}
                   />
                 </div>
+              </div>
+              <div>
+                <Label>Used by</Label>
+                <Select
+                  value={details.employee_id}
+                  onChange={(e) => setDetails((d) => ({ ...d, employee_id: e.target.value }))}
+                >
+                  <option value="">— nobody / shared —</option>
+                  {(employees.data ?? []).map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}{emp.title ? ` (${emp.title})` : ''}
+                    </option>
+                  ))}
+                </Select>
               </div>
             </div>
           )}
