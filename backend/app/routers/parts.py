@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_admin
 from app.database import get_db
-from app.models import PC, Part, PartCondition, PartType, TransferLog
+from app.models import PC, Employee, Part, PartCondition, PartType, TransferLog
 from app.schemas import (
+    AssignIn,
     OkOut,
     PartAgingOut,
     PartCreate,
@@ -23,13 +24,14 @@ router = APIRouter(prefix="/parts", tags=["parts"])
 def _part_out(part: Part) -> PartOut:
     out = PartOut.model_validate(part)
     out.pc_name = part.pc.name if part.pc else None
+    out.employee_name = part.employee.name if part.employee else None
     return out
 
 
 def _get_part_or_404(db: Session, part_id: str) -> Part:
     part = db.execute(
         select(Part)
-        .options(selectinload(Part.pc))
+        .options(selectinload(Part.pc), selectinload(Part.employee))
         .where(Part.id == part_id)
         # bypass the session identity map so post-commit re-reads are current
         .execution_options(populate_existing=True)
@@ -45,20 +47,25 @@ def list_parts(
     type: PartType | None = None,
     condition: PartCondition | None = None,
     pc_id: str | None = None,
+    employee_id: str | None = None,
     in_inventory: bool | None = None,
     search: str | None = None,
     sort: str = Query("age", pattern="^(age|price|warranty_expiry)$"),
     order: str = Query("asc", pattern="^(asc|desc)$"),
 ):
-    stmt = select(Part).options(selectinload(Part.pc))
+    stmt = select(Part).options(selectinload(Part.pc), selectinload(Part.employee))
     if type is not None:
         stmt = stmt.where(Part.type == type)
     if condition is not None:
         stmt = stmt.where(Part.condition == condition)
     if pc_id is not None:
         stmt = stmt.where(Part.pc_id == pc_id)
-    if in_inventory:
-        stmt = stmt.where(Part.pc_id.is_(None))
+    if employee_id is not None:
+        stmt = stmt.where(Part.employee_id == employee_id)
+    if in_inventory is not None:
+        # "in inventory" = not installed in a PC AND not handed to a person
+        unassigned = Part.pc_id.is_(None) & Part.employee_id.is_(None)
+        stmt = stmt.where(unassigned if in_inventory else ~unassigned)
     if search:
         like = f"%{search}%"
         stmt = stmt.where(
@@ -84,7 +91,7 @@ def parts_aging(db: Session = Depends(get_db)):
     parts = (
         db.execute(
             select(Part)
-            .options(selectinload(Part.pc))
+            .options(selectinload(Part.pc), selectinload(Part.employee))
             .order_by(Part.purchase_date.asc())
         )
         .scalars()
@@ -95,6 +102,7 @@ def parts_aging(db: Session = Depends(get_db)):
     for part in parts:
         out = PartAgingOut.model_validate(part)
         out.pc_name = part.pc.name if part.pc else None
+        out.employee_name = part.employee.name if part.employee else None
         out.age_days = (
             (today - part.purchase_date).days if part.purchase_date else None
         )
@@ -109,6 +117,10 @@ def create_part(payload: PartCreate, db: Session = Depends(get_db)):
         pc = db.get(PC, data["pc_id"])
         if pc is None:
             raise HTTPException(status_code=404, detail="Target PC not found")
+    if data.get("employee_id"):
+        emp = db.get(Employee, data["employee_id"])
+        if emp is None:
+            raise HTTPException(status_code=404, detail="Employee not found")
     part = Part(**data)
     db.add(part)
     db.flush()
@@ -155,6 +167,25 @@ def transfer_part(part_id: str, payload: TransferIn, db: Session = Depends(get_d
         TransferLog(part_id=part.id, from_pc_id=part.pc_id, to_pc_id=to_pc_id)
     )
     part.pc_id = to_pc_id
+    if to_pc_id is not None:
+        part.employee_id = None  # a part lives in a PC or with a person, not both
+    db.commit()
+    return _part_out(_get_part_or_404(db, part_id))
+
+
+@router.post("/{part_id}/assign", response_model=PartOut, dependencies=[Depends(require_admin)])
+def assign_part(part_id: str, payload: AssignIn, db: Session = Depends(get_db)):
+    """Hand a device to an employee (or back to stock with employee_id=null)."""
+    part = _get_part_or_404(db, part_id)
+    if payload.employee_id is not None:
+        emp = db.get(Employee, payload.employee_id)
+        if emp is None:
+            raise HTTPException(status_code=404, detail="Employee not found")
+    if part.pc_id is not None and payload.employee_id is not None:
+        # leaving a PC for a person's desk — keep the movement audit trail
+        db.add(TransferLog(part_id=part.id, from_pc_id=part.pc_id, to_pc_id=None))
+        part.pc_id = None
+    part.employee_id = payload.employee_id
     db.commit()
     return _part_out(_get_part_or_404(db, part_id))
 

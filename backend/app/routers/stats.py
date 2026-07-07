@@ -22,7 +22,12 @@ def get_stats(db: Session = Depends(get_db)):
     )
     total_parts = db.scalar(select(func.count(Part.id))) or 0
     inventory_count = (
-        db.scalar(select(func.count(Part.id)).where(Part.pc_id.is_(None))) or 0
+        db.scalar(
+            select(func.count(Part.id))
+            .where(Part.pc_id.is_(None))
+            .where(Part.employee_id.is_(None))
+        )
+        or 0
     )
     total_value = db.scalar(select(func.sum(Part.purchase_price))) or Decimal("0")
     expiring = (

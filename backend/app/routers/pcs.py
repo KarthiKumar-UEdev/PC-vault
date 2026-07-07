@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
-from app.models import PC, PCStatus
+from app.models import PC, Employee, PCStatus
 from app.schemas import OkOut, PCCreate, PCDetailOut, PCOut, PCUpdate
 
 router = APIRouter(prefix="/pcs", tags=["pcs"])
@@ -25,6 +25,7 @@ def _pc_out(pc: PC) -> PCOut:
     out.total_value = sum(
         (p.purchase_price or Decimal("0") for p in pc.parts), Decimal("0")
     )
+    out.employee_name = pc.employee.name if pc.employee else None
     return out
 
 
@@ -34,16 +35,26 @@ def _pc_detail(pc: PC) -> PCDetailOut:
     out.total_value = sum(
         (p.purchase_price or Decimal("0") for p in pc.parts), Decimal("0")
     )
+    out.employee_name = pc.employee.name if pc.employee else None
     for part_out, part in zip(out.parts, pc.parts):
         part_out.pc_name = pc.name
     out.has_network_info = pc.network_info is not None
     return out
 
 
+def _check_employee(db: Session, employee_id: str | None) -> None:
+    if employee_id is not None and db.get(Employee, employee_id) is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+
 def _get_pc_or_404(db: Session, pc_id: str) -> PC:
     pc = db.execute(
         select(PC)
-        .options(selectinload(PC.parts), selectinload(PC.network_info))
+        .options(
+            selectinload(PC.parts),
+            selectinload(PC.network_info),
+            selectinload(PC.employee),
+        )
         .where(PC.id == pc_id)
         # bypass the session identity map so post-commit re-reads are current
         .execution_options(populate_existing=True)
@@ -61,7 +72,7 @@ def list_pcs(
     sort: str = Query("name", pattern="^(name|build_date)$"),
     order: str = Query("asc", pattern="^(asc|desc)$"),
 ):
-    stmt = select(PC).options(selectinload(PC.parts))
+    stmt = select(PC).options(selectinload(PC.parts), selectinload(PC.employee))
     if status is not None:
         stmt = stmt.where(PC.status == status)
     if search:
@@ -75,10 +86,11 @@ def list_pcs(
 
 @router.post("", response_model=PCDetailOut, status_code=201, dependencies=[Depends(require_admin)])
 def create_pc(payload: PCCreate, db: Session = Depends(get_db)):
+    _check_employee(db, payload.employee_id)
     pc = PC(**payload.model_dump())
     db.add(pc)
     db.commit()
-    return _get_pc_or_404(db, pc.id)
+    return _pc_detail(_get_pc_or_404(db, pc.id))
 
 
 @public_router.get("/qr/{qr_code}", response_model=PCDetailOut)
@@ -101,7 +113,10 @@ def get_pc(pc_id: str, db: Session = Depends(get_db)):
 @router.patch("/{pc_id}", response_model=PCDetailOut, dependencies=[Depends(require_admin)])
 def update_pc(pc_id: str, payload: PCUpdate, db: Session = Depends(get_db)):
     pc = _get_pc_or_404(db, pc_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "employee_id" in data:
+        _check_employee(db, data["employee_id"])
+    for key, value in data.items():
         setattr(pc, key, value)
     db.commit()
     return _pc_detail(_get_pc_or_404(db, pc_id))

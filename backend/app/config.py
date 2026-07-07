@@ -19,12 +19,21 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(BASE_DIR / 'pcvault.db').as_posix()}"
     fernet_key: str = _INSECURE_DEV_KEY
 
-    # Role logins. Both empty (default) = auth disabled, API is open.
+    # Bootstrap logins — used ONLY to create the first accounts in the users
+    # table when it is empty. After that, credentials are managed from the
+    # Settings page and these values are ignored. Both passwords empty
+    # (default) = auth disabled, API is open.
     # admin: full control. manager: view everything + approve/reject/comment
-    # on planned builds. When MANAGER_PASSWORD is set, converting a build to
+    # on planned builds. When a manager account exists, converting a build to
     # a real PC requires the manager's approval first.
+    admin_username: str = "admin"
     admin_password: str = ""
+    manager_username: str = "manager"
     manager_password: str = ""
+
+    # How long a login stays valid. Shorter = safer; 7 is a good production
+    # value, 30 is convenient for a small trusted team.
+    session_ttl_days: int = 30
 
     frontend_url: str = "http://localhost:3000"
     cors_origins: str = "http://localhost:3000"

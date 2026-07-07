@@ -32,6 +32,7 @@ class PCStatus(str, enum.Enum):
 
 
 class PartType(str, enum.Enum):
+    # PC components — the classic build parts
     cpu = "cpu"
     gpu = "gpu"
     ram = "ram"
@@ -42,6 +43,20 @@ class PartType(str, enum.Enum):
     hdd = "hdd"
     mobo = "mobo"
     fan = "fan"
+    # standalone devices — the rest of the infra
+    laptop = "laptop"
+    tablet = "tablet"
+    monitor = "monitor"
+    vr = "vr"                  # e.g. Meta Quest 3
+    peripheral = "peripheral"  # keyboard, mouse, webcam…
+    audio = "audio"            # speakers, headsets, mics
+    printer = "printer"
+    camera = "camera"
+    ups = "ups"
+    # network gear
+    router = "router"
+    switch = "switch"
+    ap = "ap"                  # access point
     other = "other"
 
 
@@ -61,6 +76,43 @@ class BuildStatus(str, enum.Enum):
     rejected = "rejected"    # manager sent it back — see comments
 
 
+class User(Base):
+    """Login account. Passwords are PBKDF2-hashed — never stored in plain text.
+
+    Bootstrapped from ADMIN_/MANAGER_ env vars on first startup; after that
+    the database is the source of truth and users manage their own
+    credentials from the Settings page."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    username: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # admin | manager
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
+class Employee(Base):
+    """A person in the office. PCs and standalone devices (laptops, VR
+    headsets, monitors…) are assigned to employees, not to other machines."""
+
+    __tablename__ = "employees"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    title: Mapped[str | None] = mapped_column(String(120))
+    email: Mapped[str | None] = mapped_column(String(160))
+    department: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    pcs: Mapped[list["PC"]] = relationship(back_populates="employee")
+    parts: Mapped[list["Part"]] = relationship(back_populates="employee")
+
+
 class PC(Base):
     __tablename__ = "pcs"
 
@@ -74,11 +126,15 @@ class PC(Base):
         String(36), unique=True, default=gen_uuid, nullable=False
     )
     build_date: Mapped[date | None] = mapped_column(Date)
+    employee_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("employees.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
 
     parts: Mapped[list["Part"]] = relationship(back_populates="pc")
+    employee: Mapped["Employee | None"] = relationship(back_populates="pcs")
     network_info: Mapped["NetworkInfo | None"] = relationship(
         back_populates="pc", cascade="all, delete-orphan", uselist=False
     )
@@ -90,6 +146,10 @@ class Part(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     pc_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("pcs.id", ondelete="SET NULL"), index=True
+    )
+    # standalone devices (laptops, headsets…) are assigned to a person instead
+    employee_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("employees.id", ondelete="SET NULL"), index=True
     )
     type: Mapped[PartType] = mapped_column(
         Enum(PartType, name="part_type"), nullable=False, index=True
@@ -111,6 +171,7 @@ class Part(Base):
     )
 
     pc: Mapped["PC | None"] = relationship(back_populates="parts")
+    employee: Mapped["Employee | None"] = relationship(back_populates="parts")
     transfer_logs: Mapped[list["TransferLog"]] = relationship(
         back_populates="part", cascade="all, delete-orphan"
     )

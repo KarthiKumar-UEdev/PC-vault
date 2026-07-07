@@ -22,6 +22,7 @@ class PartBase(BaseModel):
     warranty_expiry: date | None = None
     specs: dict | None = None
     pc_id: str | None = None
+    employee_id: str | None = None
 
 
 class PartCreate(PartBase):
@@ -43,6 +44,7 @@ class PartUpdate(BaseModel):
 class PartOut(ORMModel):
     id: str
     pc_id: str | None
+    employee_id: str | None = None
     type: PartType
     brand: str
     model: str
@@ -54,6 +56,7 @@ class PartOut(ORMModel):
     specs: dict | None
     created_at: datetime
     pc_name: str | None = None
+    employee_name: str | None = None
 
 
 class PartAgingOut(PartOut):
@@ -62,6 +65,10 @@ class PartAgingOut(PartOut):
 
 class TransferIn(BaseModel):
     to_pc_id: str | None = None
+
+
+class AssignIn(BaseModel):
+    employee_id: str | None = None
 
 
 class TransferLogOut(ORMModel):
@@ -81,6 +88,7 @@ class PCBase(BaseModel):
     description: str | None = None
     status: PCStatus = PCStatus.active
     build_date: date | None = None
+    employee_id: str | None = None
 
 
 class PCCreate(PCBase):
@@ -92,6 +100,7 @@ class PCUpdate(BaseModel):
     description: str | None = None
     status: PCStatus | None = None
     build_date: date | None = None
+    employee_id: str | None = None
 
 
 class PCOut(ORMModel):
@@ -101,9 +110,11 @@ class PCOut(ORMModel):
     status: PCStatus
     qr_code: str
     build_date: date | None
+    employee_id: str | None = None
     created_at: datetime
     part_count: int = 0
     total_value: Decimal = Decimal("0")
+    employee_name: str | None = None
 
 
 class PCDetailOut(PCOut):
@@ -188,6 +199,41 @@ class BuildCommentOut(ORMModel):
 
 class BuildRejectIn(BaseModel):
     comment: str | None = Field(default=None, max_length=2000)
+
+
+# ── Employees ────────────────────────────────────────────────────────────────
+class EmployeeBase(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    title: str | None = Field(default=None, max_length=120)
+    email: str | None = Field(default=None, max_length=160)
+    department: str | None = Field(default=None, max_length=120)
+
+
+class EmployeeCreate(EmployeeBase):
+    pass
+
+
+class EmployeeUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    title: str | None = Field(default=None, max_length=120)
+    email: str | None = Field(default=None, max_length=160)
+    department: str | None = Field(default=None, max_length=120)
+
+
+class EmployeeOut(ORMModel):
+    id: str
+    name: str
+    title: str | None
+    email: str | None
+    department: str | None
+    created_at: datetime
+    pc_count: int = 0
+    device_count: int = 0
+
+
+class EmployeeDetailOut(EmployeeOut):
+    pcs: list[PCOut] = []
+    parts: list[PartOut] = []
 
 
 # ── Dashboard / misc ─────────────────────────────────────────────────────────
