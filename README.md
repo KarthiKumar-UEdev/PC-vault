@@ -7,8 +7,9 @@ warranties and network info — with an interactive 3D viewer and QR labels.
   Tailwind CSS, Framer Motion, React Three Fiber, Zustand, TanStack Query
 - **Backend** — FastAPI + synchronous SQLAlchemy 2.0, Pydantic v2, Alembic
 - **Database** — MySQL 8 / MariaDB in production, SQLite fallback for dev
-- **Deployment** — MilesWeb shared cPanel (static files + Passenger Python app),
-  see [DEPLOY.md](DEPLOY.md)
+- **Deployment** — cPanel (static files + Passenger Python app,
+  [DEPLOY.md](DEPLOY.md)) or Vercel + hosted Postgres/MySQL
+  ([DEPLOY-VERCEL.md](DEPLOY-VERCEL.md))
 
 ```
 pc-vault/

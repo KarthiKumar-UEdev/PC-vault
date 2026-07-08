@@ -26,11 +26,7 @@ NEW_TYPES = (
 )
 
 
-def _alter(types: tuple[str, ...]) -> None:
-    # SQLite stores SQLAlchemy Enums as plain VARCHAR (no CHECK constraint),
-    # so only MySQL's native ENUM columns need altering.
-    if op.get_bind().dialect.name != "mysql":
-        return
+def _alter_mysql(types: tuple[str, ...]) -> None:
     enum = sa.Enum(*types, name="part_type")
     op.alter_column("parts", "type", type_=enum, existing_nullable=False)
     op.alter_column(
@@ -39,9 +35,21 @@ def _alter(types: tuple[str, ...]) -> None:
 
 
 def upgrade() -> None:
-    _alter(NEW_TYPES)
+    dialect = op.get_bind().dialect.name
+    if dialect == "mysql":
+        _alter_mysql(NEW_TYPES)
+    elif dialect == "postgresql":
+        # native enum type — extend it in place. ADD VALUE can't run inside
+        # the migration transaction, hence the autocommit block.
+        added = [t for t in NEW_TYPES if t not in OLD_TYPES]
+        with op.get_context().autocommit_block():
+            for value in added:
+                op.execute(f"ALTER TYPE part_type ADD VALUE IF NOT EXISTS '{value}'")
+    # SQLite stores SQLAlchemy Enums as plain VARCHAR — nothing to alter
 
 
 def downgrade() -> None:
-    # NOTE: fails on MySQL if rows already use the new types — remove them first
-    _alter(OLD_TYPES)
+    # MySQL only; fails if rows already use the new types — remove them first.
+    # (Postgres can't drop enum values in place; restore from backup instead.)
+    if op.get_bind().dialect.name == "mysql":
+        _alter_mysql(OLD_TYPES)

@@ -46,10 +46,17 @@ API_PREFIX = "/api/v1"
 PROTECTED = [Depends(require_auth)]
 
 
-@app.on_event("startup")
-def _bootstrap_users() -> None:
-    """First run only: create admin/manager accounts from env vars."""
-    bootstrap_users()
+def run_startup_checks() -> None:
+    """First run only: create admin/manager accounts from env vars.
+    Never crashes the app — on serverless a cold start can race the first
+    `alembic upgrade head`, and the API should still boot to say so."""
+    try:
+        bootstrap_users()
+    except Exception:  # noqa: BLE001 — missing tables / unreachable DB
+        logger.warning(
+            "user bootstrap skipped — is the database migrated? "
+            "Run `alembic upgrade head` against DATABASE_URL."
+        )
     if settings.fernet_key == _INSECURE_DEV_KEY and (
         settings.admin_password or settings.manager_password
     ):
@@ -58,6 +65,11 @@ def _bootstrap_users() -> None:
             "encrypted network info are NOT safe. Set a real key in production "
             "(see SETUP.md)."
         )
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    run_startup_checks()
 
 # Public: login + QR landing lookup (scanned tags open without a session).
 # public_router must register before pcs.router so /pcs/qr/... wins over /pcs/{pc_id}.

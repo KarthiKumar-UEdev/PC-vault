@@ -2,7 +2,8 @@
 
 How to set up your list of users, and everything that must happen **before**
 and **after** a deployment (database tables, env vars, first login).
-For the full cPanel walkthrough see [DEPLOY.md](DEPLOY.md); for syncing the
+For the full cPanel walkthrough see [DEPLOY.md](DEPLOY.md); for Vercel +
+hosted Postgres see [DEPLOY-VERCEL.md](DEPLOY-VERCEL.md); for syncing the
 project to another dev machine see [SYNC.md](SYNC.md).
 
 ---
